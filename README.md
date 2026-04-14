@@ -152,6 +152,9 @@ flowchart TD
 ### Potential biases
 The system might over priritize accousticness , given it has the highest weights among all 
 
+### Terminal Output of Recommendations
+![Terminal Output of Recommendations](image.png)
+
 ---
 
 ## Getting Started
