@@ -149,6 +149,8 @@ flowchart TD
     N["🏆 Top K Recommendations\n──────────────────────────\n(song, score, explanation) × K\nordered by score  ↓"]
 ```
 
+### Potential biases
+The system might over priritize accousticness , given it has the highest weights among all 
 
 ---
 
