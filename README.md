@@ -29,6 +29,74 @@ Some prompts to answer:
 
 You can include a simple diagram or bullet list if helpful.
 
+My main approach of designing this music recoomendation system is based on 2 rules
+
+1. Scoring rule 
+2. Ranking rule
+
+Scoring Rule:   score(song, user_prefs) → float between 0 and 1
+                (Gaussian similarity + categorical match weights)
+
+Ranking Rule:   rank(scored_songs, limit=5) → top N songs
+                Rules:
+                  1. Sort by score descending (primary)
+                  2. No more than 2 songs of the same genre in results
+                  3. If scores within 0.05 of each other, prefer different mood
+                  4. Return top N results
+
+### Why I set 2 rules 
+Scoring rules show the result of songs from 0-1 , while Ranking rules will dsplay the song in descending order , meaning score with highest ranking will probably fits the user taste the most
+
+### Simple math based 'Scoring Rule'
+
+total_score = (w_e × score_energy
+             + w_v × score_valence
+             + w_a × score_acousticness
+             + w_mood × mood_match
+             + w_genre × genre_match)
+             ─────────────────────────────
+               (w_e + w_v + w_a + w_mood + w_genre)
+
+| Feature | Weight | Reasoning |
+|---|---|---|
+| `valence` | 0.30 | Strongest mood anchor — happy vs sad |
+| `mood` | 0.25 | User's explicit intent |
+| `energy` | 0.20 | Activity level driver |
+| `genre` | 0.15 | Style preference, partially redundant with numericals |
+| `acousticness` | 0.10 | Texture detail, lowest unique signal |
+| **Total** | **1.00** | |
+
+
+
+- this formula will score songs based of user prefrence ( highest is 1.0 , lowest is 0)
+category_score = 1.0  if song value == user preference
+               = 0.0  if no match
+
+### Song Features Used in Simulation
+
+| Field | Type | Role |
+|---|---|---|
+| `id` | `int` | Unique identifier |
+| `title` | `str` | Display name |
+| `artist` | `str` | Display name |
+| `genre` | `str` | Categorical scoring (weight 0.15) |
+| `mood` | `str` | Categorical scoring (weight 0.25) |
+| `energy` | `float` | Gaussian scoring (weight 0.20) |
+| `valence` | `float` | Gaussian scoring (weight 0.30) |
+| `acousticness` | `float` | Gaussian scoring (weight 0.10) |
+| `tempo_bpm` | `float` | Stored, not scored |
+| `danceability` | `float` | Stored, not scored |
+
+### UserProfile Features Used in Simulation
+
+| Field | Type | Matches Against |
+|---|---|---|
+| `favorite_genre` | `str` | `song.genre` |
+| `favorite_mood` | `str` | `song.mood` |
+| `preferred_energy` | `float` | `song.energy` |
+| `preferred_valence` | `float` | `song.valence` |
+| `preferred_acousticness` | `float` | `song.acousticness` |
+
 ---
 
 ## Getting Started
