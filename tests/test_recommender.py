@@ -61,3 +61,20 @@ def test_explain_recommendation_returns_non_empty_string():
     explanation = rec.explain_recommendation(user, song)
     assert isinstance(explanation, str)
     assert explanation.strip() != ""
+
+
+def test_recommend_handles_conflicting_preferences_edge_case():
+    user = UserProfile(
+        favorite_genre="pop",
+        favorite_mood="sad",
+        target_energy=0.9,
+        preferred_valence=0.1,
+        preferred_acousticness=0.9,
+    )
+    rec = make_small_recommender()
+    results = rec.recommend(user, k=2)
+
+    assert len(results) == 2
+    assert results[0].title == "Test Pop Track"
+    assert results[0].genre == "pop"
+    assert results[0].mood == "happy"

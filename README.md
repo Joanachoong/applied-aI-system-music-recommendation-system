@@ -59,11 +59,11 @@ total_score = (w_e × score_energy
 
 | Feature | Weight | Reasoning |
 |---|---|---|
-| `valence` | 0.30 | Strongest mood anchor — happy vs sad |
+| `genre` | 0.25 | Style preference — raised to match mood's decisiveness; genre mismatch now clearly penalises a song |
 | `mood` | 0.25 | User's explicit intent |
+| `valence` | 0.25 | Mood anchor — happy vs sad; reduced slightly to rebalance total |
 | `energy` | 0.20 | Activity level driver |
-| `genre` | 0.15 | Style preference, partially redundant with numericals |
-| `acousticness` | 0.10 | Texture detail, lowest unique signal |
+| `acousticness` | 0.05 | Texture detail; lowered to reduce Gaussian noise floor that inflated scores for mismatched songs |
 | **Total** | **1.00** | |
 
 
@@ -79,11 +79,11 @@ category_score = 1.0  if song value == user preference
 | `id` | `int` | Unique identifier |
 | `title` | `str` | Display name |
 | `artist` | `str` | Display name |
-| `genre` | `str` | Categorical scoring (weight 0.15) |
+| `genre` | `str` | Categorical scoring (weight 0.25) |
 | `mood` | `str` | Categorical scoring (weight 0.25) |
 | `energy` | `float` | Gaussian scoring (weight 0.20) |
-| `valence` | `float` | Gaussian scoring (weight 0.30) |
-| `acousticness` | `float` | Gaussian scoring (weight 0.10) |
+| `valence` | `float` | Gaussian scoring (weight 0.25) |
+| `acousticness` | `float` | Gaussian scoring (weight 0.05) |
 | `tempo_bpm` | `float` | Stored, not scored |
 | `danceability` | `float` | Stored, not scored |
 
@@ -117,11 +117,11 @@ flowchart TD
 
     D --> E["_score_song_dict(song, user_prefs)"]
 
-    E --> E1["valence × 0.30\nGaussian similarity"]
+    E --> E1["valence × 0.25\nGaussian similarity"]
     E --> E2["mood_match × 0.25\nbinary  1.0 or 0.0"]
     E --> E3["energy × 0.20\nGaussian similarity"]
-    E --> E4["genre_match × 0.15\nbinary  1.0 or 0.0"]
-    E --> E5["acousticness × 0.10\nGaussian similarity"]
+    E --> E4["genre_match × 0.25\nbinary  1.0 or 0.0"]
+    E --> E5["acousticness × 0.05\nGaussian similarity"]
 
     E1 & E2 & E3 & E4 & E5 --> F["total_score  ∈  0 – 1\nweighted sum of all five"]
 
@@ -150,10 +150,14 @@ flowchart TD
 ```
 
 ### Potential biases
-The system might over priritize accousticness , given it has the highest weights among all 
+After rebalancing, genre and mood now carry equal weight (0.25 each). The system may still over-recommend songs that match mood but miss genre (e.g. metal appearing in rock results) because mood alone can compensate for a genre mismatch. Acousticness was intentionally reduced to 0.05 to stop its Gaussian "noise floor" from inflating scores for poorly-matched songs.
 
 ### Terminal Output of Recommendations
 ![Terminal Output of Recommendations](image.png)
+
+
+### Terminal Output of Recommendations ( with confusion data )
+![alt text](image-1.png)
 
 ---
 

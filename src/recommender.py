@@ -52,7 +52,7 @@ def _score_song_dict(song: Dict, user_prefs: Dict) -> Tuple[float, List[str]]:
 
     # --- categorical features: binary match/mismatch ---
     if song["genre"] == user_prefs["favorite_genre"]:
-        genre_contribution = 0.15
+        genre_contribution = 0.25
         reasons.append(f"genre match (+{genre_contribution:.2f})")
     else:
         genre_contribution = 0.0
@@ -72,9 +72,9 @@ def _score_song_dict(song: Dict, user_prefs: Dict) -> Tuple[float, List[str]]:
         )
 
     # --- numerical features: Gaussian similarity (always contributes something) ---
-    valence_contribution  = 0.30 * _gaussian(song["valence"],      user_prefs["preferred_valence"])
+    valence_contribution  = 0.25 * _gaussian(song["valence"],      user_prefs["preferred_valence"])
     energy_contribution   = 0.20 * _gaussian(song["energy"],       user_prefs["target_energy"])
-    acoustic_contribution = 0.10 * _gaussian(song["acousticness"], user_prefs["preferred_acousticness"])
+    acoustic_contribution = 0.05 * _gaussian(song["acousticness"], user_prefs["preferred_acousticness"])
 
     reasons.append(
         f"valence similarity (+{valence_contribution:.2f}, "
@@ -106,7 +106,7 @@ def _score_song_obj(song: Song, user: "UserProfile") -> Tuple[float, List[str]]:
 
     # --- categorical features: binary match/mismatch ---
     if song.genre == user.favorite_genre:
-        genre_contribution = 0.15
+        genre_contribution = 0.25
         reasons.append(f"genre match (+{genre_contribution:.2f})")
     else:
         genre_contribution = 0.0
@@ -126,9 +126,9 @@ def _score_song_obj(song: Song, user: "UserProfile") -> Tuple[float, List[str]]:
         )
 
     # --- numerical features: Gaussian similarity ---
-    valence_contribution  = 0.30 * _gaussian(song.valence,      user.preferred_valence)
+    valence_contribution  = 0.25 * _gaussian(song.valence,      user.preferred_valence)
     energy_contribution   = 0.20 * _gaussian(song.energy,       user.target_energy)
-    acoustic_contribution = 0.10 * _gaussian(song.acousticness, user.preferred_acousticness)
+    acoustic_contribution = 0.05 * _gaussian(song.acousticness, user.preferred_acousticness)
 
     reasons.append(
         f"valence similarity (+{valence_contribution:.2f}, "
@@ -186,11 +186,11 @@ class Recommender:
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
         """Explain the strongest matching feature for a song."""
         contributions = {
-            "valence":      0.30 * _gaussian(song.valence,      user.preferred_valence),
+            "valence":      0.25 * _gaussian(song.valence,      user.preferred_valence),
             "mood":         0.25 * (1.0 if song.mood == user.favorite_mood else 0.0),
             "energy":       0.20 * _gaussian(song.energy,       user.target_energy),
-            "genre":        0.15 * (1.0 if song.genre == user.favorite_genre else 0.0),
-            "acousticness": 0.10 * _gaussian(song.acousticness, user.preferred_acousticness),
+            "genre":        0.25 * (1.0 if song.genre == user.favorite_genre else 0.0),
+            "acousticness": 0.05 * _gaussian(song.acousticness, user.preferred_acousticness),
         }
         top_feature = max(contributions, key=contributions.get)
 
