@@ -97,6 +97,59 @@ category_score = 1.0  if song value == user preference
 | `preferred_valence` | `float` | `song.valence` |
 | `preferred_acousticness` | `float` | `song.acousticness` |
 
+### Visualization of this process 
+
+# Music Recommender — Data Flow
+
+```mermaid
+flowchart TD
+    %% ── INPUTS ──────────────────────────────────────────────
+    A["🎧 User Preferences\n──────────────────\nfavorite_genre\nfavorite_mood\ntarget_energy\npreferred_valence\npreferred_acousticness"]
+
+    B[("📄 songs.csv\n18 songs")]
+
+    %% ── LOAD ────────────────────────────────────────────────
+    B --> C["load_songs()\nparse each CSV row\ncast numeric fields to float"]
+
+    %% ── SCORING LOOP ────────────────────────────────────────
+    C --> D["⟳  FOR EACH song in dataset"]
+    A --> D
+
+    D --> E["_score_song_dict(song, user_prefs)"]
+
+    E --> E1["valence × 0.30\nGaussian similarity"]
+    E --> E2["mood_match × 0.25\nbinary  1.0 or 0.0"]
+    E --> E3["energy × 0.20\nGaussian similarity"]
+    E --> E4["genre_match × 0.15\nbinary  1.0 or 0.0"]
+    E --> E5["acousticness × 0.10\nGaussian similarity"]
+
+    E1 & E2 & E3 & E4 & E5 --> F["total_score  ∈  0 – 1\nweighted sum of all five"]
+
+    F --> G["Song tagged with score\ne.g. Sunrise City → 0.87"]
+
+    G -->|"repeat for every song"| D
+
+    %% ── SORT ────────────────────────────────────────────────
+    D -->|"all 18 songs scored"| H["sorted() — rank all songs\nhighest score first"]
+
+    %% ── DIVERSITY FILTER LOOP ───────────────────────────────
+    H --> I["⟳  Walk ranked list, build results"]
+
+    I --> J{"Genre already\nappears 2× in results?"}
+    J -->|"Yes — skip song"| I
+    J -->|"No"| K{"Score within 0.05 of\nlast pick AND same mood?"}
+    K -->|"Yes — skip song"| I
+    K -->|"No — accept song"| L["Add  song + score + explanation\nto results list"]
+
+    L --> M{"len(results) == K ?"}
+    M -->|"No — keep going"| I
+    M -->|"Yes — done"| N
+
+    %% ── OUTPUT ──────────────────────────────────────────────
+    N["🏆 Top K Recommendations\n──────────────────────────\n(song, score, explanation) × K\nordered by score  ↓"]
+```
+
+
 ---
 
 ## Getting Started
