@@ -204,7 +204,7 @@ Rank 5: Pop Vibes        artist: PopStar     genre: pop   mood: happy   score: 0
         artist mismatch (+0.00) | genre match (+0.12) | mood match (+0.12)
 ```
 
-> **What this shows:** Artist-Match gives artist a 0.50 weight scaled by popularity/100 (Rank 1: 0.50 × 0.85 = 0.425). Once all 3 RareArtist songs are exhausted, positions 4–5 fall back to the next-best scoring songs — pop/happy songs that share the same genre and mood profile.
+> **What this shows:** If there is a mood–genre conflict, the result is ranked based on the user's selected scoring mode preference.
 
 ---
 
@@ -212,15 +212,25 @@ Rank 5: Pop Vibes        artist: PopStar     genre: pop   mood: happy   score: 0
 
 ### Weighted Scoring Formula
 
+Each song is scored using a weighted sum. The weights depend on the selected scoring mode:
+
 ```
-score = (genre_match × 0.25) + (mood_match × 0.25)
-      + (gaussian(valence) × 0.25) + (gaussian(energy) × 0.20)
-      + (gaussian(acousticness) × 0.05)
+score = (genre_match × w_genre) + (mood_match × w_mood)
+      + (gaussian(valence) × w_valence) + (gaussian(energy) × w_energy)
+      + (gaussian(acousticness) × w_acousticness)
+      + (artist_boost × w_artist)          # Artist-Match mode only
 ```
 
-Genre and mood together carry 50% of the score because they represent explicit user intent — a "pop" or "happy" preference is a hard requirement, not a gradient. Numeric features (valence, energy, acousticness) use a Gaussian similarity curve (`σ = 0.20`) so songs that are *close* to the preference still score well instead of falling off a cliff.
+| Weight | Balanced | Genre-First | Mood-First | Artist-Match |
+|---|---|---|---|---|
+| `w_genre` | 0.25 | **0.50** | 0.20 | 0.125 |
+| `w_mood` | 0.25 | 0.20 | **0.50** | 0.125 |
+| `w_valence` | 0.25 | 0.15 | 0.15 | 0.125 |
+| `w_energy` | 0.20 | 0.10 | 0.10 | 0.10 |
+| `w_acousticness` | 0.05 | 0.05 | 0.05 | 0.025 |
+| `w_artist` | 0.00 | 0.00 | 0.00 | **0.50** |
 
-**Acousticness is weighted at only 0.05** — it was reduced from an earlier higher weight because its Gaussian had a high noise floor that inflated scores for songs that clearly didn't match the user's profile. Lowering it fixed score inflation without losing texture differentiation.
+Genre and mood use binary matching (1.0 if match, 0.0 otherwise). Numeric features (valence, energy, acousticness) use a Gaussian similarity curve (`σ = 0.20`) so songs close to the preference still score well. The artist term is only active in Artist-Match mode and is scaled by the song's popularity (0–100).
 
 ### Diversity Filter
 
@@ -245,7 +255,6 @@ The RAG layer derives a mood label from audio features (energy, valence, tempo t
 | Decision | Upside | Downside |
 |---|---|---|
 | Binary genre/mood match | Simple, transparent | A slight genre mismatch = zero credit (harsh) |
-| Gaussian for numeric features | Smooth preference curve | σ = 0.20 is a tunable assumption |
 | Single genre/mood preference | Easy to fill out | Can't express "some pop, some jazz" |
 | Pre-built vector index | Queries load in ~0.5s | Index is stale if the Kaggle dataset changes |
 
@@ -339,58 +348,6 @@ Genre and mood use binary matching (1.0 if match, 0.0 otherwise). Numerical feat
 | `acousticness` | 0.05 | 0.05 | 0.05 | 0.025 |
 | `artist` | 0.00 | 0.00 | 0.00 | **0.50** |
 | **Total** | **1.00** | **1.00** | **1.00** | **1.00** |
-
-### Visualization of this process
-
-```mermaid
-flowchart TD
-    %% ── INPUTS ──────────────────────────────────────────────
-    A["🎧 User Preferences\n──────────────────\nfavorite_genre\nfavorite_mood\ntarget_energy\npreferred_valence\npreferred_acousticness"]
-
-    B[("📄 songs.csv\n18 songs")]
-
-    %% ── LOAD ────────────────────────────────────────────────
-    B --> C["load_songs()\nparse each CSV row\ncast numeric fields to float"]
-
-    %% ── SCORING LOOP ────────────────────────────────────────
-    C --> D["⟳  FOR EACH song in dataset"]
-    A --> D
-
-    D --> E["_score_song_dict(song, user_prefs)"]
-
-    E --> E1["valence × 0.25\nGaussian similarity"]
-    E --> E2["mood_match × 0.25\nbinary  1.0 or 0.0"]
-    E --> E3["energy × 0.20\nGaussian similarity"]
-    E --> E4["genre_match × 0.25\nbinary  1.0 or 0.0"]
-    E --> E5["acousticness × 0.05\nGaussian similarity"]
-
-    E1 & E2 & E3 & E4 & E5 --> F["total_score  ∈  0 – 1\nweighted sum of all five"]
-
-    F --> G["Song tagged with score\ne.g. Sunrise City → 0.87"]
-
-    G -->|"repeat for every song"| D
-
-    %% ── SORT ────────────────────────────────────────────────
-    D -->|"all 18 songs scored"| H["sorted() — rank all songs\nhighest score first"]
-
-    %% ── DIVERSITY FILTER LOOP ───────────────────────────────
-    H --> I["⟳  Walk ranked list, build results"]
-
-    I --> J{"Genre already\nappears 2× in results?"}
-    J -->|"Yes — skip song"| I
-    J -->|"No"| K{"Score within 0.05 of\nlast pick AND same mood?"}
-    K -->|"Yes — skip song"| I
-    K -->|"No — accept song"| L["Add  song + score + explanation\nto results list"]
-
-    L --> M{"len(results) == K ?"}
-    M -->|"No — keep going"| I
-    M -->|"Yes — done"| N
-
-    %% ── OUTPUT ──────────────────────────────────────────────
-    N["🏆 Top K Recommendations\n──────────────────────────\n(song, score, explanation) × K\nordered by score  ↓"]
-```
-
----
 
 ## Terminal Output Screenshots
 
