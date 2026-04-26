@@ -207,30 +207,55 @@ The RAG layer derives a mood label from audio features (energy, valence, tempo t
 
 ### What the test suite covers
 
-**`tests/test_recommender.py`**
-- `Song` and `UserProfile` dataclass construction and field types
-- `_score_song_dict()` for exact genre/mood matches, partial matches, and no matches
-- `gaussian()` similarity at exact match (returns 1.0) and at distance
-- `Recommender.recommend()` diversity filter (genre cap, near-duplicate skipping)
-- Profiling: ensure `recommend_songs()` completes within an acceptable time
+**`tests/test_recommender.py`** — 14 tests across two layers
 
-**`tests/test_rag.py`**
-- `infer_mood()` covers all 10 mood branches (energetic, happy, intense, sad, chill, relaxed, focused, romantic, nostalgic, moody)
-- `song_vector()` returns a 6-element vector with all values in [0, 1]
-- `retrieve_candidates()` returns exactly `k` results
-- `kaggle_row_to_song_dict()` maps all required keys correctly
+**Layer 1 — `_score_song_dict()` weight verification (7 tests)**
+
+These tests call the scoring function directly with a perfect-match song (all numerical values equal user preferences, Gaussian = 1.0) and each mode's `ScoringWeights`, asserting the exact computed score:
+
+| Test | Mode | Expected score | Formula |
+|---|---|---|---|
+| `test_score_balanced_perfect_match` | Balanced | 1.0 | 0.25+0.25+0.25+0.20+0.05 |
+| `test_score_genre_first_perfect_match` | Genre-First | 1.0 | 0.50+0.20+0.15+0.10+0.05 |
+| `test_score_mood_first_perfect_match` | Mood-First | 1.0 | 0.20+0.50+0.15+0.10+0.05 |
+| `test_score_energy_focused_perfect_match` | Energy-Focused | 1.0 | 0.10+0.10+0.20+0.55+0.05 |
+| `test_score_artist_match_perfect_match` | Artist-Match | 0.95 | 0.50×(90/100)+0.125+0.125+0.125+0.10+0.025 |
+| `test_score_genre_first_genre_mismatch` | Genre-First | 0.50 | genre drops to 0; mood+numerics remain |
+| `test_score_mood_first_mood_mismatch` | Mood-First | 0.50 | mood drops to 0; genre+numerics remain |
+
+**Layer 2 — `recommend_songs()` runtime behavior tests (7 tests)**
+
+These mirror actual Streamlit user interactions against a controlled 18-song fixture. All tests verify that top-5 match scores exceed the **0.7 quality threshold** shown in the UI (`st.metric("Match score", ...)`).
+
+| Test | Mode | Assertion |
+|---|---|---|
+| `test_balanced_all_scores_above_threshold` | Balanced | All 5 scores > 0.7 |
+| `test_genre_first_top5_same_genre` | Genre-First | All 5 results have `genre == "pop"`, scores > 0.7 |
+| `test_mood_first_top5_same_mood` | Mood-First | All 5 results have `mood == "happy"`, scores > 0.7 |
+| `test_conflict_genre_vs_mood` | Genre-First vs Mood-First | Same user (genre=pop, mood=sad): Genre-First ranks pop/happy #1; Mood-First ranks pop/sad #1 |
+| `test_energy_focused_top5_energy_close_to_target` | Energy-Focused | All 5 energies within ±0.15 of target; low-energy song excluded |
+| `test_artist_match_top5_by_preferred_artist_sorted_by_popularity` | Artist-Match | All 5 by preferred artist, sorted by decreasing popularity, scores > 0.7 |
+| `test_artist_match_edge_case_fewer_than_5_songs` | Artist-Match | First 3 from artist (scores > 0.7); positions 4–5 fall back to pop/happy songs |
+
+**`tests/test_rag.py`** — 22 tests (unchanged)
+- `infer_mood()` covers all mood branches (energetic, happy, intense, sad, chill, relaxed, focused, romantic, nostalgic, moody fallback)
+- `song_vector()` shape, dtype, value range, and tempo normalization
+- `retrieve_candidates()` returns exactly `k` results and handles `k > n`
+- `kaggle_row_to_song_dict()` required keys, types, and inferred mood
+- `user_profile_to_vector()` shape, range, and energy mapping
+- `rag_recommend()` result count and `(song, score, reasons)` tuple structure
 
 ### What worked
 
-The scoring formula is deterministic and stable — once the weights were finalized, tests passed consistently across all profiles. The RAG mood inference correctly handled all 10 branches including edge cases like very low energy (→ "relaxed") and high tempo + mid-energy (→ "focused"). The diversity filter reliably capped genre repetition in all test scenarios.
+The scoring formula is deterministic and stable — Layer 1 tests confirmed all 5 mode weight tables are applied correctly at the function level, and Layer 2 tests confirmed that the mode choice produces the expected behavioral outcomes (e.g. the same genre=pop/mood=sad user gets a different #1 result in Genre-First vs Mood-First). The Artist-Match popularity ordering was reliably maintained across all fixture runs.
 
 ### What didn't / was difficult
 
-The conflicting-signals edge case (genre = pop, mood = sad, high energy = 0.90, low valence = 0.10, high acousticness = 0.90) consistently produced counterintuitive results. The system picks by best numeric score, which means high energy can compensate for a mood mismatch in ways a human wouldn't expect. The genre pre-filter in the RAG layer also falls back to the full 114k corpus for niche genres (e.g. "lofi"), which means those queries behave as if there is no genre filter at all.
+The conflicting-signals edge case (genre=pop, mood=sad, high energy) exposes that the system picks by best numeric score — a pop/happy song can outscore a pop/sad song in Genre-First because its energy and valence are numerically closer to the user's sliders, even when the user explicitly asked for "sad." The Artist-Match edge case (< 5 artist songs) produces fallback songs that score only ~0.50 in Artist-Match mode, well below the 0.7 threshold, so the score requirement is intentionally relaxed for positions 4–5.
 
 ### What was learned
 
-Separating retrieval from scoring made each component independently testable — bugs in mood inference didn't affect scoring tests and vice versa. Rule-based mood inference is brittle at boundary values (valence ≈ 0.50, energy ≈ 0.50), which a learned classifier would handle more gracefully.
+Testing through `recommend_songs()` (functional API) rather than `Recommender.recommend()` (OOP class) was necessary for the genre and mood dominance tests — the OOP class applies a diversity cap of max 2 songs per genre, making it impossible to assert "all 5 results are the same genre." Separating the two APIs made each independently testable. The Layer 1 direct scoring tests also caught a documentation error where the wrong mode weights were described in the plan — having exact expected values computed by hand before writing assertions is a reliable way to surface weight-table mistakes early.
 
 ---
 
@@ -247,22 +272,27 @@ The most surprising realization was that a system can be "correct" by its own ru
 ## Scoring Rule (Reference)
 
 ```
-total_score = (w_genre × genre_match
-             + w_mood  × mood_match
-             + w_v     × gaussian(valence)
-             + w_e     × gaussian(energy)
-             + w_a     × gaussian(acousticness))
-             ÷ (w_genre + w_mood + w_v + w_e + w_a)
+total_score = w_genre × genre_match
+            + w_mood  × mood_match
+            + w_v     × gaussian(valence,      σ=0.20)
+            + w_e     × gaussian(energy,        σ=0.20)
+            + w_a     × gaussian(acousticness,  σ=0.20)
+            + w_artist × (popularity / 100)   [only when artist matches]
 ```
 
-| Feature | Weight | Type |
-|---|---|---|
-| `genre` | 0.25 | Binary (1.0 / 0.0) |
-| `mood` | 0.25 | Binary (1.0 / 0.0) |
-| `valence` | 0.25 | Gaussian (σ = 0.20) |
-| `energy` | 0.20 | Gaussian (σ = 0.20) |
-| `acousticness` | 0.05 | Gaussian (σ = 0.20) |
-| **Total** | **1.00** | |
+Genre and mood use binary matching (1.0 if match, 0.0 otherwise). Numerical features use a Gaussian similarity curve so nearby values still score well. The `artist` term is only active in Artist-Match mode and is weighted by the song's popularity (0–100).
+
+### Scoring Modes
+
+| Feature | Balanced | Genre-First | Mood-First | Energy-Focused | Artist-Match |
+|---|---|---|---|---|---|
+| `genre` | 0.25 | **0.50** | 0.20 | 0.10 | 0.125 |
+| `mood` | 0.25 | 0.20 | **0.50** | 0.10 | 0.125 |
+| `valence` | 0.25 | 0.15 | 0.15 | 0.20 | 0.125 |
+| `energy` | 0.20 | 0.10 | 0.10 | **0.55** | 0.10 |
+| `acousticness` | 0.05 | 0.05 | 0.05 | 0.05 | 0.025 |
+| `artist` | 0.00 | 0.00 | 0.00 | 0.00 | **0.50** |
+| **Total** | **1.00** | **1.00** | **1.00** | **1.00** | **1.00** |
 
 ### Visualization of this process
 
