@@ -24,7 +24,7 @@ The original project was a **Music Recommender Simulation** built across Modules
 
 **What it does:** This project recommends music by matching your sonic preferences — genre, mood, energy level, positivity (valence), and acoustic texture — against a real Spotify catalog of 114,000 tracks.
 
-**Why it matters:** Real-world recommenders like Spotify and YouTube use a two-stage design: first retrieve a manageable set of candidates, then rank them precisely. This project demonstrates exactly that pattern. The RAG layer (in `src/rag.py`) converts your preferences into a vector and uses cosine similarity to narrow 114,000 songs down to 50 candidates. The original scoring engine (`src/recommender.py`) then re-ranks those 50 with a transparent, explainable weighted formula and applies diversity filters to ensure varied results.
+**Why it matters:** Real-world recommenders like Spotify and YouTube use a two-stage design: first retrieve a manageable set of candidates, then rank them precisely. This project apply this logic by asking user their preferred genre , mood or artist. The RAG layer (in `src/rag.py`) converts your preferences into a vector and uses cosine similarity to narrow 114,000 songs down to top 5 songs. The original scoring engine (`src/recommender.py`) then re-ranks the songs based on the top matching score with a transparent, explainable weighted formula to iindicate the accuracy of the result.
 
 The Streamlit UI (`src/app.py`) makes the whole pipeline interactive — no code required to use it.
 
@@ -90,73 +90,121 @@ pytest -v       # verbose with test names
 
 ## 5. Sample Interactions
 
-All three examples below use the CLI harness (`src/main.py`) run against the 18-song dataset. The same profiles also work in the Streamlit UI against 114,000 songs.
+All three examples below use `recommend_songs()` from `src/recommender.py` run against the controlled 18-song test fixture used in `tests/test_recommender.py`. The same scoring logic runs in the Streamlit UI against 114,000 songs.
 
 ---
 
-### Example 1 — High-Energy Pop Fan
+### Example 1 — Genre-First: Pop / Happy
+
+Scoring mode: **Genre-First** (genre weight = 0.50). Genre match dominates; all top results are `pop` regardless of other features.
 
 **Input:**
 ```python
 {
     "favorite_genre": "pop",
     "favorite_mood": "happy",
-    "target_energy": 0.90,
-    "preferred_valence": 0.85,
+    "target_energy": 0.80,
+    "preferred_valence": 0.75,
+    "preferred_acousticness": 0.15,
+    "scoring_mode": "Genre-First"
+}
+```
+
+**Top 3 Output:**
+```
+Rank 1: Pop Happy Anthem   artist: PopStar      genre: pop   mood: happy   score: 1.00
+        genre match (+0.50) | mood match (+0.20) | valence 0.75 (+0.15) | energy 0.80 (+0.10)
+
+Rank 2: Rare Pop Jam       artist: RareArtist   genre: pop   mood: happy   score: 1.00
+        genre match (+0.50) | mood match (+0.20) | valence 0.75 (+0.15) | energy 0.80 (+0.10)
+
+Rank 3: Pop Vibes          artist: PopStar      genre: pop   mood: happy   score: 1.00
+        genre match (+0.50) | mood match (+0.20) | valence 0.74 (+0.15) | energy 0.79 (+0.10)
+```
+
+> **What this shows:** Genre match contributes +0.50 to every result. Non-pop songs (Rock Power, Electronic Surge) score below 0.25 in this mode and never surface in the top 5.
+
+---
+
+### Example 2 — Mood-Genre Conflict: Same Input, Two Modes
+
+User picks `genre = pop` but `mood = sad`. The scoring mode determines which preference wins.
+
+**Input:**
+```python
+{
+    "favorite_genre": "pop",
+    "favorite_mood": "sad",
+    "target_energy": 0.80,
+    "preferred_valence": 0.75,
     "preferred_acousticness": 0.15
 }
 ```
 
-**Top 3 Output:**
+**Genre-First output** (genre weight = 0.50, mood weight = 0.20):
 ```
-Rank 1: Sunrise City    score: 0.94   genre match (+0.25) | mood match (+0.25) | valence ≈ 0.83 (+0.24) | energy ≈ 0.88 (+0.21)
-Rank 2: Gym Hero        score: 0.88   genre match (+0.25) | mood match (+0.25) | energy ≈ 0.92 (+0.19)
-Rank 3: Rooftop Lights  score: 0.84   genre match (+0.25) | valence ≈ 0.80 (+0.23) | energy ≈ 0.85 (+0.20)
+Rank 1: Pop Happy Anthem   genre: pop   mood: happy   score: 0.80
+        genre match (+0.50) | mood mismatch (+0.00) | valence 0.75 (+0.15) | energy 0.80 (+0.10)
+
+Rank 2: Rare Pop Jam       genre: pop   mood: happy   score: 0.80
+        genre match (+0.50) | mood mismatch (+0.00) | valence 0.75 (+0.15) | energy 0.80 (+0.10)
+
+Rank 3: Pop Vibes          genre: pop   mood: happy   score: 0.80
+        genre match (+0.50) | mood mismatch (+0.00) | valence 0.74 (+0.15) | energy 0.79 (+0.10)
 ```
+
+**Mood-First output** (mood weight = 0.50, genre weight = 0.20):
+```
+Rank 1: Pop Melancholy     genre: pop   mood: sad    score: 0.73
+        genre match (+0.20) | mood match (+0.50) | valence 0.25 (+0.01) | energy 0.35 (+0.01)
+
+Rank 2: Pop Heartbreak     genre: pop   mood: sad    score: 0.71
+        genre match (+0.20) | mood match (+0.50) | valence 0.20 (+0.00) | energy 0.30 (+0.00)
+
+Rank 3: Rock Lament        genre: rock  mood: sad    score: 0.52
+        genre mismatch (+0.00) | mood match (+0.50) | valence 0.25 (+0.01) | energy 0.30 (+0.00)
+```
+
+> **What this shows:** Switching from Genre-First to Mood-First completely changes the #1 result. In Genre-First, pop/happy songs (score 0.80) outrank pop/sad songs (score ~0.73) because the 0.50 genre weight is unchanged and the numerical features (energy, valence) favour the happier songs. In Mood-First, the 0.50 mood weight flips the ranking.
 
 ---
 
-### Example 2 — Chill Lofi Listener
+### Example 3 — Artist-Match Edge Case: Fewer Than 5 Songs
+
+Preferred artist `RareArtist` has only 3 songs in the dataset. The system returns all 3 first, then falls back to pop/happy songs that best match the remaining features.
 
 **Input:**
 ```python
 {
-    "favorite_genre": "lofi",
-    "favorite_mood": "chill",
-    "target_energy": 0.25,
-    "preferred_valence": 0.40,
-    "preferred_acousticness": 0.85
+    "favorite_genre": "pop",
+    "favorite_mood": "happy",
+    "target_energy": 0.80,
+    "preferred_valence": 0.75,
+    "preferred_acousticness": 0.15,
+    "preferred_artist": "RareArtist",
+    "scoring_mode": "Artist-Match"
 }
 ```
 
-**Top 3 Output:**
+**Top 5 Output:**
 ```
-Rank 1: Library Rain      score: 0.89   genre match (+0.25) | mood match (+0.25) | acousticness ≈ 0.88 (+0.05) | low energy ≈ 0.22 (+0.20)
-Rank 2: Midnight Coding   score: 0.83   genre match (+0.25) | mood match (+0.25) | acousticness ≈ 0.80 (+0.04)
-Rank 3: Focus Flow        score: 0.78   mood match (+0.25) | low energy ≈ 0.30 (+0.19) | acousticness ≈ 0.75 (+0.04)
+Rank 1: Rare Pop Jam    artist: RareArtist   genre: pop   mood: happy   score: 0.93
+        artist match (+0.43, RareArtist, popularity=85/100)
+
+Rank 2: Rare Pop Groove artist: RareArtist   genre: pop   mood: happy   score: 0.86
+        artist match (+0.36, RareArtist, popularity=72/100)
+
+Rank 3: Rare Pop Echo   artist: RareArtist   genre: pop   mood: happy   score: 0.80
+        artist match (+0.30, RareArtist, popularity=60/100)
+
+Rank 4: Pop Happy Anthem artist: PopStar     genre: pop   mood: happy   score: 0.50
+        artist mismatch (+0.00) | genre match (+0.12) | mood match (+0.12)
+
+Rank 5: Pop Vibes        artist: PopStar     genre: pop   mood: happy   score: 0.50
+        artist mismatch (+0.00) | genre match (+0.12) | mood match (+0.12)
 ```
 
----
-
-### Example 3 — Deep Intense Rock
-
-**Input:**
-```python
-{
-    "favorite_genre": "rock",
-    "favorite_mood": "intense",
-    "target_energy": 0.95,
-    "preferred_valence": 0.30,
-    "preferred_acousticness": 0.10
-}
-```
-
-**Top 3 Output:**
-```
-Rank 1: Storm Runner      score: 0.91   genre match (+0.25) | mood match (+0.25) | energy ≈ 0.93 (+0.20) | low valence ≈ 0.25 (+0.24)
-Rank 2: Iron Cathedral    score: 0.87   genre match (+0.25) | mood match (+0.25) | energy ≈ 0.90 (+0.20)
-Rank 3: Gym Hero          score: 0.79   mood match (+0.25) | energy ≈ 0.92 (+0.20) | valence ≈ 0.35 (+0.23)
-```
+> **What this shows:** Artist-Match gives artist a 0.50 weight scaled by popularity/100 (Rank 1: 0.50 × 0.85 = 0.425). Once all 3 RareArtist songs are exhausted, positions 4–5 fall back to the next-best scoring songs — pop/happy songs that share the same genre and mood profile.
 
 ---
 
