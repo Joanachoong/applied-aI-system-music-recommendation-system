@@ -103,12 +103,6 @@ def test_score_mood_first_perfect_match():
     assert score == pytest.approx(1.0, abs=1e-4)
 
 
-def test_score_energy_focused_perfect_match():
-    """Energy-Focused: genre(0.10)+mood(0.10)+valence(0.20)+energy(0.55)+acousticness(0.05) = 1.0."""
-    score, _ = _score_song_dict(_PERFECT_SONG, _USER_PREFS, SCORING_MODES["Energy-Focused"])
-    assert score == pytest.approx(1.0, abs=1e-4)
-
-
 def test_score_artist_match_perfect_match():
     """Artist-Match: artist(0.50×90/100=0.45) + genre(0.125)+mood(0.125)+valence(0.125)
     +energy(0.10)+acousticness(0.025) = 0.95."""
@@ -179,21 +173,6 @@ def test_conflict_genre_vs_mood():
     assert mood_results[0][0]["mood"] == "sad", (
         f"Mood-First should rank pop/sad first; got mood={mood_results[0][0]['mood']}"
     )
-
-
-def test_energy_focused_top5_energy_close_to_target():
-    """Energy-Focused (energy weight 0.55): top-5 all have energy near 0.80.
-    A very low-energy song (Classical Serenity, energy=0.20) scores ~0.05 and must not appear.
-    """
-    results = recommend_songs(_DEFAULT_PREFS, _make_rich_fixture(), k=5, mode="Energy-Focused")
-    assert len(results) == 5
-    titles = {song["title"] for song, _, _ in results}
-    assert "Classical Serenity" not in titles, "Low-energy noise song should not rank in top 5"
-    for song, score, _ in results:
-        assert abs(song["energy"] - 0.80) <= 0.15, (
-            f"{song['title']} energy={song['energy']:.2f} is too far from target 0.80"
-        )
-        assert score > 0.7, f"{song['title']} scored {score:.3f}, expected > 0.7"
 
 
 def test_artist_match_top5_by_preferred_artist_sorted_by_popularity():

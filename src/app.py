@@ -74,7 +74,6 @@ SCORING_MODE_LABELS = {
     "Balanced":       "Balanced — all features equal weight",
     "Genre-First":    "Genre-First — heavily favors your genre pick",
     "Mood-First":     "Mood-First — heavily favors your mood pick",
-    "Energy-Focused": "Energy-Focused — matches energy level above all",
     "Artist-Match":   "Artist-Match — boosts songs by a preferred artist",
 }
 

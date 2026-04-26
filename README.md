@@ -266,7 +266,6 @@ These tests call the scoring function directly with a perfect-match song (all nu
 | `test_score_balanced_perfect_match` | Balanced | 1.0 | 0.25+0.25+0.25+0.20+0.05 |
 | `test_score_genre_first_perfect_match` | Genre-First | 1.0 | 0.50+0.20+0.15+0.10+0.05 |
 | `test_score_mood_first_perfect_match` | Mood-First | 1.0 | 0.20+0.50+0.15+0.10+0.05 |
-| `test_score_energy_focused_perfect_match` | Energy-Focused | 1.0 | 0.10+0.10+0.20+0.55+0.05 |
 | `test_score_artist_match_perfect_match` | Artist-Match | 0.95 | 0.50×(90/100)+0.125+0.125+0.125+0.10+0.025 |
 | `test_score_genre_first_genre_mismatch` | Genre-First | 0.50 | genre drops to 0; mood+numerics remain |
 | `test_score_mood_first_mood_mismatch` | Mood-First | 0.50 | mood drops to 0; genre+numerics remain |
@@ -281,7 +280,6 @@ These mirror actual Streamlit user interactions against a controlled 18-song fix
 | `test_genre_first_top5_same_genre` | Genre-First | All 5 results have `genre == "pop"`, scores > 0.7 |
 | `test_mood_first_top5_same_mood` | Mood-First | All 5 results have `mood == "happy"`, scores > 0.7 |
 | `test_conflict_genre_vs_mood` | Genre-First vs Mood-First | Same user (genre=pop, mood=sad): Genre-First ranks pop/happy #1; Mood-First ranks pop/sad #1 |
-| `test_energy_focused_top5_energy_close_to_target` | Energy-Focused | All 5 energies within ±0.15 of target; low-energy song excluded |
 | `test_artist_match_top5_by_preferred_artist_sorted_by_popularity` | Artist-Match | All 5 by preferred artist, sorted by decreasing popularity, scores > 0.7 |
 | `test_artist_match_edge_case_fewer_than_5_songs` | Artist-Match | First 3 from artist (scores > 0.7); positions 4–5 fall back to pop/happy songs |
 
@@ -332,15 +330,15 @@ Genre and mood use binary matching (1.0 if match, 0.0 otherwise). Numerical feat
 
 ### Scoring Modes
 
-| Feature | Balanced | Genre-First | Mood-First | Energy-Focused | Artist-Match |
-|---|---|---|---|---|---|
-| `genre` | 0.25 | **0.50** | 0.20 | 0.10 | 0.125 |
-| `mood` | 0.25 | 0.20 | **0.50** | 0.10 | 0.125 |
-| `valence` | 0.25 | 0.15 | 0.15 | 0.20 | 0.125 |
-| `energy` | 0.20 | 0.10 | 0.10 | **0.55** | 0.10 |
-| `acousticness` | 0.05 | 0.05 | 0.05 | 0.05 | 0.025 |
-| `artist` | 0.00 | 0.00 | 0.00 | 0.00 | **0.50** |
-| **Total** | **1.00** | **1.00** | **1.00** | **1.00** | **1.00** |
+| Feature | Balanced | Genre-First | Mood-First | Artist-Match |
+|---|---|---|---|---|
+| `genre` | 0.25 | **0.50** | 0.20 | 0.125 |
+| `mood` | 0.25 | 0.20 | **0.50** | 0.125 |
+| `valence` | 0.25 | 0.15 | 0.15 | 0.125 |
+| `energy` | 0.20 | 0.10 | 0.10 | 0.10 |
+| `acousticness` | 0.05 | 0.05 | 0.05 | 0.025 |
+| `artist` | 0.00 | 0.00 | 0.00 | **0.50** |
+| **Total** | **1.00** | **1.00** | **1.00** | **1.00** |
 
 ### Visualization of this process
 

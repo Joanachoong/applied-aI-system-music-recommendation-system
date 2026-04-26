@@ -20,7 +20,6 @@ SCORING_MODES: Dict[str, ScoringWeights] = {
     "Balanced":       ScoringWeights(genre=0.25, mood=0.25, valence=0.25, energy=0.20, acousticness=0.05, artist=0.00),
     "Genre-First":    ScoringWeights(genre=0.50, mood=0.20, valence=0.15, energy=0.10, acousticness=0.05, artist=0.00),
     "Mood-First":     ScoringWeights(genre=0.20, mood=0.50, valence=0.15, energy=0.10, acousticness=0.05, artist=0.00),
-    "Energy-Focused": ScoringWeights(genre=0.10, mood=0.10, valence=0.20, energy=0.55, acousticness=0.05, artist=0.00),
     # Artist-Match: artist holds 0.50; remaining 0.50 uses Balanced proportions.
     "Artist-Match":   ScoringWeights(genre=0.125, mood=0.125, valence=0.125, energy=0.10, acousticness=0.025, artist=0.50),
 }
