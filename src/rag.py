@@ -75,6 +75,7 @@ def kaggle_row_to_song_dict(row: Dict) -> Dict:
         "valence": valence,
         "danceability": float(row["danceability"]),
         "acousticness": acousticness,
+        "popularity": int(row.get("popularity", 50)),
     }
 
 
@@ -186,6 +187,7 @@ def rag_recommend(
     matrix_normed: np.ndarray,
     k_retrieve: int = 50,
     k_final: int = 5,
+    mode: str = "Balanced",
 ) -> List[Tuple[Dict, float, List[str]]]:
     """
     Full RAG pipeline:
@@ -226,4 +228,4 @@ def rag_recommend(
             seen.add(key)
             unique_candidates.append(c)
 
-    return recommend_songs(user_prefs, unique_candidates, k=k_final)
+    return recommend_songs(user_prefs, unique_candidates, k=k_final, mode=mode)

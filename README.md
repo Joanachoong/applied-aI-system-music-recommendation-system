@@ -16,7 +16,7 @@ A rule-based music recommender that scores songs against your taste profile, now
 
 ## 1. Original Project — Music Recommender Simulation (Module 3)
 
-The original project was a **Music Recommender Simulation** built across Modules 1–3. It scored a hand-curated catalog of 18 songs against a user's taste profile using a weighted formula that combined genre, mood, valence, energy, and acousticness features. The system returned the top-k most relevant songs with per-song explanations, and was evaluated using a CLI harness that tested 4 predefined user profiles (High-Energy Pop, Chill Lofi, Deep Intense Rock, and a conflicting-signals edge case).
+The original project was a **Music Recommender Simulation** built across Modules 3. It scored a hand-curated catalog of 18 songs against a user's taste profile using a weighted formula that combined genre, mood, valence, energy, and acousticness features. The system returned the top 5 most relevant songs with per-song explanations, and was evaluated using a CLI harness that tested 4 predefined user profiles (High-Energy Pop, Chill Lofi, Deep Intense Rock, and a conflicting-signals edge case).
 
 ---
 

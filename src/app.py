@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
 from src.rag import get_or_build_index, rag_recommend
+from src.recommender import SCORING_MODES
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,39 @@ ALL_GENRES = [
 ALL_MOODS = ["happy", "sad", "chill", "relaxed", "intense",
              "energetic", "focused", "romantic", "nostalgic", "moody"]
 
+TOP_ARTISTS = [
+    "Arctic Monkeys",
+    "BTS",
+    "Bryan Adams",
+    "Burna Boy",
+    "Chuck Berry",
+    "Daddy Yankee",
+    "Dean Martin",
+    "Don Omar",
+    "Ella Fitzgerald",
+    "Elvis Presley",
+    "George Jones",
+    "J Balvin",
+    "Linkin Park",
+    "Nat King Cole",
+    "Norah Jones",
+    "OneRepublic",
+    "Rammstein",
+    "Red Hot Chili Peppers",
+    "Stevie Wonder",
+    "The Beach Boys",
+    "The Beatles",
+    "Weezer",
+]
+
+SCORING_MODE_LABELS = {
+    "Balanced":       "Balanced — all features equal weight",
+    "Genre-First":    "Genre-First — heavily favors your genre pick",
+    "Mood-First":     "Mood-First — heavily favors your mood pick",
+    "Energy-Focused": "Energy-Focused — matches energy level above all",
+    "Artist-Match":   "Artist-Match — boosts songs by a preferred artist",
+}
+
 
 # ── Cached index loader (built once per Streamlit session) ─────────────────────
 
@@ -54,8 +88,8 @@ def load_index_cached():
 
 # ── UI helpers ─────────────────────────────────────────────────────────────────
 
-def render_sidebar() -> dict:
-    """Render the preference form in the sidebar and return a user_prefs dict."""
+def render_sidebar():
+    """Render the preference form in the sidebar and return (user_prefs, go, scoring_mode)."""
     st.sidebar.title("🎵 Music Recommender")
     st.sidebar.markdown("Tell us what you're in the mood for:")
 
@@ -87,15 +121,36 @@ def render_sidebar() -> dict:
     )
 
     st.sidebar.markdown("---")
+    st.sidebar.markdown("**Scoring Mode**")
+    scoring_mode = st.sidebar.radio(
+        "Scoring Mode",
+        options=list(SCORING_MODE_LABELS.keys()),
+        format_func=lambda k: SCORING_MODE_LABELS[k],
+        index=0,
+        label_visibility="collapsed",
+    )
+
+    preferred_artist = ""
+    if scoring_mode == "Artist-Match":
+        preferred_artist = st.sidebar.selectbox(
+            "Choose an artist",
+            options=TOP_ARTISTS,
+            index=0,
+        )
+
+    st.sidebar.markdown("---")
     go = st.sidebar.button("🎶 Get Recommendations", use_container_width=True)
 
-    return {
+    user_prefs = {
         "favorite_genre": genre,
         "favorite_mood": mood,
         "target_energy": energy,
         "preferred_valence": valence,
         "preferred_acousticness": acousticness,
-    }, go
+        "preferred_artist": preferred_artist,
+    }
+
+    return user_prefs, go, scoring_mode
 
 
 def render_results(recommendations: list) -> None:
@@ -129,11 +184,12 @@ def render_results(recommendations: list) -> None:
             st.divider()
 
 
-def render_explainer() -> None:
+def render_explainer(mode: str = "Balanced") -> None:
     """Show an educational explanation of the RAG pipeline."""
+    w = SCORING_MODES.get(mode, SCORING_MODES["Balanced"])
     with st.expander("ℹ️ How the RAG system works"):
         st.markdown(
-            """
+            f"""
 **Retrieval-Augmented Generation (RAG)** extends the recommender from 18 songs → 114,000 real Spotify tracks.
 
 **Step-by-step:**
@@ -143,9 +199,11 @@ def render_explainer() -> None:
 3. **Cosine similarity search** — that vector is compared against all 114,000 song vectors in the index.
    Songs that *sound* like your preferences float to the top (no genre filter yet).
 4. **Top-50 candidates retrieved** — the 50 most sonically similar songs are selected.
-5. **Scoring engine re-ranks** — the existing weighted scorer (genre +0.25, mood +0.25, valence +0.25,
-   energy +0.20, acousticness +0.05) picks the best 5 from those 50 candidates.
+5. **Scoring engine re-ranks** — the weighted scorer picks the best 5 from those 50 candidates.
 6. **You see the results** — top-5 songs with match scores and a reason for each feature.
+
+**Active weights — *{mode}* mode:**
+genre `{w.genre}` · mood `{w.mood}` · valence `{w.valence}` · energy `{w.energy}` · acousticness `{w.acousticness}` · artist `{w.artist}`
 
 > **Why RAG?** Without retrieval, searching for "k-pop" returns nothing because the original dataset
 > has no k-pop tracks. With RAG, we pull real k-pop songs from Spotify before scoring.
@@ -168,16 +226,16 @@ def main() -> None:
         "Fill in your preferences on the left and hit **Get Recommendations**."
     )
 
-    user_prefs, go = render_sidebar()
+    user_prefs, go, scoring_mode = render_sidebar()
 
-    render_explainer()
+    render_explainer(scoring_mode)
 
     if go:
         song_dicts, matrix_normed = load_index_cached()
         with st.spinner("Finding your songs…"):
             recommendations = rag_recommend(
                 user_prefs, song_dicts, matrix_normed,
-                k_retrieve=50, k_final=5,
+                k_retrieve=50, k_final=5, mode=scoring_mode,
             )
         render_results(recommendations)
     else:

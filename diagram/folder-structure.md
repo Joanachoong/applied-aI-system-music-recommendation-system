@@ -1,5 +1,32 @@
 # Folder Architecture
 
+## Directory Tree
+
+```
+ai110-module3show-musicrecommendersimulation-starter/
+├── src/
+│   ├── __init__.py
+│   ├── app.py              Streamlit web UI
+│   ├── rag.py              RAG retriever — vector index + cosine search
+│   ├── recommender.py      Scoring engine — weighted formula + diversity filter
+│   └── main.py             CLI evaluation harness
+├── tests/
+│   ├── test_recommender.py Unit tests for scoring logic
+│   └── test_rag.py         Unit tests for RAG components
+├── data/
+│   ├── spotify_tracks.csv  114k Spotify tracks (Kaggle source)
+│   ├── rag_index.npz       Pre-built vector index (auto-generated)
+│   ├── rag_index_meta.pkl  Song metadata for index (auto-generated)
+│   └── songs.csv           18-song baseline dataset
+├── diagram/
+│   ├── system-diagram.md   Mermaid flowchart of full RAG pipeline
+│   └── folder-structure.md This file — data flow and codebase guide
+├── README.md
+├── model_card.md
+├── requirements.txt
+└── pytest.ini
+```
+
 ## System Data Flow
 
 ```
@@ -72,29 +99,3 @@ src/main.py                   CLI evaluation harness
 
 ---
 
-## Directory Tree
-
-```
-ai110-module3show-musicrecommendersimulation-starter/
-├── src/
-│   ├── __init__.py
-│   ├── app.py              Streamlit web UI
-│   ├── rag.py              RAG retriever — vector index + cosine search
-│   ├── recommender.py      Scoring engine — weighted formula + diversity filter
-│   └── main.py             CLI evaluation harness
-├── tests/
-│   ├── test_recommender.py Unit tests for scoring logic
-│   └── test_rag.py         Unit tests for RAG components
-├── data/
-│   ├── spotify_tracks.csv  114k Spotify tracks (Kaggle source)
-│   ├── rag_index.npz       Pre-built vector index (auto-generated)
-│   ├── rag_index_meta.pkl  Song metadata for index (auto-generated)
-│   └── songs.csv           18-song baseline dataset
-├── diagram/
-│   ├── system-diagram.md   Mermaid flowchart of full RAG pipeline
-│   └── folder-structure.md This file — data flow and codebase guide
-├── README.md
-├── model_card.md
-├── requirements.txt
-└── pytest.ini
-```
