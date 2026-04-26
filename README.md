@@ -254,7 +254,6 @@ The RAG layer derives a mood label from audio features (energy, valence, tempo t
 
 | Decision | Upside | Downside |
 |---|---|---|
-| Binary genre/mood match | Simple, transparent | A slight genre mismatch = zero credit (harsh) |
 | Single genre/mood preference | Easy to fill out | Can't express "some pop, some jazz" |
 | Pre-built vector index | Queries load in ~0.5s | Index is stale if the Kaggle dataset changes |
 
@@ -292,7 +291,7 @@ These mirror actual Streamlit user interactions against a controlled 18-song fix
 | `test_artist_match_top5_by_preferred_artist_sorted_by_popularity` | Artist-Match | All 5 by preferred artist, sorted by decreasing popularity, scores > 0.7 |
 | `test_artist_match_edge_case_fewer_than_5_songs` | Artist-Match | First 3 from artist (scores > 0.7); positions 4–5 fall back to pop/happy songs |
 
-**`tests/test_rag.py`** — 22 tests (unchanged)
+**`tests/test_rag.py`** — 22 tests 
 - `infer_mood()` covers all mood branches (energetic, happy, intense, sad, chill, relaxed, focused, romantic, nostalgic, moody fallback)
 - `song_vector()` shape, dtype, value range, and tempo normalization
 - `retrieve_candidates()` returns exactly `k` results and handles `k > n`
@@ -302,26 +301,23 @@ These mirror actual Streamlit user interactions against a controlled 18-song fix
 
 ### What worked
 
-The scoring formula is deterministic and stable — Layer 1 tests confirmed all 5 mode weight tables are applied correctly at the function level, and Layer 2 tests confirmed that the mode choice produces the expected behavioral outcomes (e.g. the same genre=pop/mood=sad user gets a different #1 result in Genre-First vs Mood-First). The Artist-Match popularity ordering was reliably maintained across all fixture runs.
+- Layer 1 tests confirmed all 50 mode weight tables are applied correctly at the function level, and 
+- Layer 2 tests confirmed that the mode choice produces the expected behavioral outcomes (e.g. the same genre=pop/mood=sad user gets a different #1 result in Genre-First vs Mood-First). The Artist-Match popularity ordering was reliably maintained across all fixture runs.
 
 ### What didn't / was difficult
 
-The conflicting-signals edge case (genre=pop, mood=sad, high energy) exposes that the system picks by best numeric score — a pop/happy song can outscore a pop/sad song in Genre-First because its energy and valence are numerically closer to the user's sliders, even when the user explicitly asked for "sad." The Artist-Match edge case (< 5 artist songs) produces fallback songs that score only ~0.50 in Artist-Match mode, well below the 0.7 threshold, so the score requirement is intentionally relaxed for positions 4–5.
+The conflicting-signals edge case (genre=pop, mood=sad, high energy) exposes that the system picks by best numeric score — a pop/happy song can outscore a pop/sad song in Genre-First because its energy and valence are numerically closer to the user's sliders, even when the user explicitly asked for "sad."， this issue still remains a big issue when it comes to a real world music recommedner system.
 
 ### What was learned
 
-Testing through `recommend_songs()` (functional API) rather than `Recommender.recommend()` (OOP class) was necessary for the genre and mood dominance tests — the OOP class applies a diversity cap of max 2 songs per genre, making it impossible to assert "all 5 results are the same genre." Separating the two APIs made each independently testable. The Layer 1 direct scoring tests also caught a documentation error where the wrong mode weights were described in the plan — having exact expected values computed by hand before writing assertions is a reliable way to surface weight-table mistakes early.
-
+I learned how to implement RAG system into a music recommendation systema plus evaluting my result based on test cases and user manual input to ensure the result closely matches wth user expected output. 
 ---
 
 ## 8. Reflection
 
-Building the scoring engine first made it clear that a recommender is essentially a formalized version of "how much does this thing match what I said I want?" The math mirrors human intuition but makes the trade-offs explicit: you choose what features matter, how much each one matters, and how harshly to penalize a mismatch. Those choices are invisible inside Spotify or YouTube, but here they are readable in a table.
+Adding RAG revealed how retrieval scope shapes the whole system. Without the vector pre-filter, the scorer either has to run on the full dataset (slow) or miss songs that don't appear in a small curated list using two-stage design retrieve approximately, then rank precisely. 
 
-Adding RAG revealed how retrieval scope shapes the whole system. Without the vector pre-filter, the scorer either has to run on the full dataset (slow) or miss songs that don't appear in a small curated list. The two-stage design — retrieve approximately, then rank precisely — is the same pattern production recommenders use at scale. Implementing it at classroom scale made the architecture feel real rather than theoretical.
-
-The most surprising realization was that a system can be "correct" by its own rules and still feel wrong to a human. A song scoring 0.91 can feel irrelevant if one feature (genre or mood) dominated the score. That gap between metric and perception is where human judgment still matters, even in a well-tested automated system. Closing that gap — through better features, learned weights, or user feedback — is the actual open problem in recommendation research.
-
+The most surprising realization was that a system can be "correct" by its own rules and the outpur can still feel wrong. For example , A high song scoring 0.91 can feel irrelevant if one feature (genre or mood) dominated the score or confusion matrix was applied. Hence, imeplementing more diverse attributes like classifying useres with simialr genre and mood will definenly create a more precise result tat fits user taste. 
 ---
 
 ## Scoring Rule (Reference)
@@ -349,10 +345,13 @@ Genre and mood use binary matching (1.0 if match, 0.0 otherwise). Numerical feat
 | `artist` | 0.00 | 0.00 | 0.00 | **0.50** |
 | **Total** | **1.00** | **1.00** | **1.00** | **1.00** |
 
-## Terminal Output Screenshots
+## Output Screenshots
 
-### Recommendations
-![Terminal Output of Recommendations](image.png)
+### Genre Based Recommender Output
+![Genre Based Recommender Output](image-1.png)
 
-### Recommendations with Confusion Data
-![Terminal Output with confusion data](image-1.png)
+### Mood Based Recommender Output
+![Mood Based Recommender Output](image-2.png)
+
+### Confusion matrix Recommender Output
+![Confusion matrix Recommender Output](image-4.png)

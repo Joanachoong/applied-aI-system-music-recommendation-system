@@ -165,7 +165,7 @@ def render_results(recommendations: list) -> None:
             col1, col2 = st.columns([3, 1])
             with col1:
                 st.markdown(
-                    f"**{rank}. {song['title']}** &nbsp; — &nbsp; *{song['artist']}*"
+                    f"**{rank}. Title:** {song['title']} &nbsp;·&nbsp; **Artist:** {song['artist']}"
                 )
                 st.caption(
                     f"genre: `{song['genre']}`  •  mood: `{song['mood']}`  •  "
@@ -174,7 +174,6 @@ def render_results(recommendations: list) -> None:
             with col2:
                 st.metric(label="Match score", value=f"{score:.2f}")
 
-            st.progress(score, text="")
 
             with st.expander("Why this song?"):
                 for reason in reasons:
