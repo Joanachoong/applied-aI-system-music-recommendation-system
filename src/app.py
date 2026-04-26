@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
 from src.rag import get_or_build_index, rag_recommend
-from src.recommender import SCORING_MODES
+from src.recommender import SCORING_MODES, recommend_songs
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -152,9 +152,14 @@ def render_sidebar():
     return user_prefs, go, scoring_mode
 
 
-def render_results(recommendations: list) -> None:
-    """Display top-5 song cards with score bars and reason breakdowns."""
-    st.subheader("🎧 Your Top 5 Picks")
+def render_results(recommendations: list, mode: str = "Balanced", artist: str = "") -> None:
+    """Display song cards with score bars and reason breakdowns."""
+    if mode == "Artist-Match" and artist:
+        st.subheader(f"🎧 Top 5 Songs by {artist}")
+        score_label = "Popularity"
+    else:
+        st.subheader("🎧 Your Top 5 Picks")
+        score_label = "Match score"
 
     if not recommendations:
         st.warning("No songs found. Try adjusting your preferences.")
@@ -172,8 +177,7 @@ def render_results(recommendations: list) -> None:
                     f"energy: `{song['energy']:.2f}`  •  valence: `{song['valence']:.2f}`"
                 )
             with col2:
-                st.metric(label="Match score", value=f"{score:.2f}")
-
+                st.metric(label=score_label, value=f"{score:.2f}")
 
             with st.expander("Why this song?"):
                 for reason in reasons:
@@ -230,12 +234,23 @@ def main() -> None:
 
     if go:
         song_dicts, matrix_normed = load_index_cached()
-        with st.spinner("Finding your songs…"):
-            recommendations = rag_recommend(
-                user_prefs, song_dicts, matrix_normed,
-                k_retrieve=50, k_final=5, mode=scoring_mode,
-            )
-        render_results(recommendations)
+        preferred_artist = user_prefs.get("preferred_artist", "")
+
+        if scoring_mode == "Artist-Match" and preferred_artist:
+            with st.spinner(f"Finding all songs by {preferred_artist}…"):
+                # Bypass RAG: cosine search doesn't filter by artist name.
+                # Search the full catalog directly by artist, then rank by popularity.
+                artist_lower = preferred_artist.strip().lower()
+                artist_pool = [s for s in song_dicts if s["artist"].strip().lower() == artist_lower]
+                recommendations = recommend_songs(user_prefs, artist_pool, mode="Artist-Match")
+        else:
+            with st.spinner("Finding your songs…"):
+                recommendations = rag_recommend(
+                    user_prefs, song_dicts, matrix_normed,
+                    k_retrieve=50, k_final=5, mode=scoring_mode,
+                )
+
+        render_results(recommendations, mode=scoring_mode, artist=preferred_artist)
     else:
         st.info("Select your preferences in the sidebar and click **🎶 Get Recommendations**.")
 

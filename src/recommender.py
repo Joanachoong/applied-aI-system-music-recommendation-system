@@ -226,6 +226,12 @@ class Recommender:
         """Return the top-k songs for a user profile."""
         weights = SCORING_MODES.get(mode, SCORING_MODES["Balanced"])
 
+        # Artist-Match fast path: return ALL songs by the preferred artist, ranked by popularity
+        if mode == "Artist-Match" and user.preferred_artist:
+            preferred = user.preferred_artist.strip().lower()
+            artist_songs = [s for s in self.songs if s.artist.strip().lower() == preferred]
+            return sorted(artist_songs, key=lambda s: float(getattr(s, "popularity", 50)), reverse=True)
+
         # Pre-compute scores once to avoid double-scoring in the diversity loop
         pre_scored = [(s, _score_song_obj(s, user, weights)[0]) for s in self.songs]
         scored = [s for s, _ in sorted(pre_scored, key=lambda x: x[1], reverse=True)]
@@ -310,6 +316,19 @@ def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5, mode: str =
     list of human-readable strings explaining each feature's contribution.
     """
     weights = SCORING_MODES.get(mode, SCORING_MODES["Balanced"])
+
+    # Artist-Match fast path: artist overrides all other features.
+    # Score = popularity/100; genre/mood/energy are ignored.
+    if mode == "Artist-Match" and user_prefs.get("preferred_artist"):
+        preferred = user_prefs["preferred_artist"].strip().lower()
+        artist_songs = [s for s in songs if s["artist"].strip().lower() == preferred]
+        scored = []
+        for s in artist_songs:
+            pop = min(float(s.get("popularity", 50)), 100.0)
+            score = pop / 100.0
+            reasons = [f"artist match ({s['artist']}), popularity={int(pop)}/100"]
+            scored.append((s, score, reasons))
+        return sorted(scored, key=lambda x: x[1], reverse=True)[:k]
 
     # Score every song once
     scored = [

@@ -355,3 +355,6 @@ Genre and mood use binary matching (1.0 if match, 0.0 otherwise). Numerical feat
 
 ### Confusion matrix Recommender Output
 ![Confusion matrix Recommender Output](image-4.png)
+
+### Artist based Recommender Output
+![Artist based Recommender Output](image-3.png)

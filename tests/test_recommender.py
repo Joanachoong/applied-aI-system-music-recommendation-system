@@ -177,14 +177,19 @@ def test_conflict_genre_vs_mood():
 
 def test_artist_match_top5_by_preferred_artist_sorted_by_popularity():
     """Artist-Match: all 5 results should be by 'PopStar', ordered by decreasing
-    popularity (artist contribution = 0.50 × popularity/100 drives the ranking).
+    popularity. Score equals popularity/100; genre/mood/energy are ignored.
     """
     prefs = {**_DEFAULT_PREFS, "preferred_artist": "PopStar"}
     results = recommend_songs(prefs, _make_rich_fixture(), k=5, mode="Artist-Match")
     assert len(results) == 5
-    for song, score, _ in results:
+    for song, score, reasons in results:
         assert song["artist"] == "PopStar", f"Expected PopStar, got {song['artist']}"
-        assert score > 0.7, f"{song['title']} scored {score:.3f}, expected > 0.7"
+        assert score == pytest.approx(song["popularity"] / 100.0, abs=1e-4), (
+            f"{song['title']} score {score:.3f} != popularity/100 {song['popularity']/100:.3f}"
+        )
+        assert len(reasons) == 1 and "artist match" in reasons[0], (
+            f"Expected artist-only reason, got: {reasons}"
+        )
     popularities = [song["popularity"] for song, _, _ in results]
     assert popularities == sorted(popularities, reverse=True), (
         f"Results not sorted by popularity: {popularities}"
@@ -192,23 +197,24 @@ def test_artist_match_top5_by_preferred_artist_sorted_by_popularity():
 
 
 def test_artist_match_edge_case_fewer_than_5_songs():
-    """Artist-Match edge case: preferred artist has only 3 songs in the dataset.
-    Top 3 should be the artist's songs (score > 0.7); positions 4-5 fall back to
-    songs with a similar profile (pop/happy) since they score highest after artist songs.
+    """Artist-Match edge case: preferred artist has only 3 songs.
+    All 3 RareArtist songs are returned sorted by popularity; no fallback songs added.
+    Score equals popularity/100; genre/mood/energy are ignored.
     """
     prefs = {**_DEFAULT_PREFS, "preferred_artist": "RareArtist"}
     results = recommend_songs(prefs, _make_rich_fixture(), k=5, mode="Artist-Match")
-    assert len(results) == 5
-
-    for song, score, _ in results[:3]:
+    assert len(results) == 3
+    for song, score, reasons in results:
         assert song["artist"] == "RareArtist", (
-            f"Expected RareArtist in top 3, got {song['artist']}"
+            f"Expected RareArtist, got {song['artist']}"
         )
-        assert score > 0.7, f"{song['title']} scored {score:.3f}, expected > 0.7"
-
-    for song, _, _ in results[3:]:
-        assert song["artist"] != "RareArtist", (
-            "Only 3 RareArtist songs exist; positions 4-5 must be fallback songs"
+        assert score == pytest.approx(song["popularity"] / 100.0, abs=1e-4), (
+            f"{song['title']} score {score:.3f} != popularity/100 {song['popularity']/100:.3f}"
         )
-        assert song["genre"] == "pop", f"Fallback should be pop genre, got {song['genre']}"
-        assert song["mood"] == "happy", f"Fallback should be happy mood, got {song['mood']}"
+        assert len(reasons) == 1 and "artist match" in reasons[0], (
+            f"Expected artist-only reason, got: {reasons}"
+        )
+    popularities = [song["popularity"] for song, _, _ in results]
+    assert popularities == sorted(popularities, reverse=True), (
+        f"Results not sorted by popularity: {popularities}"
+    )
