@@ -2,6 +2,9 @@
 
 A rule-based music recommender that scores songs against your taste profile, now extended with a Retrieval-Augmented Generation (RAG) pipeline to search across 114,000 real Spotify tracks through an interactive Streamlit UI.
 
+### Recording 
+https://www.loom.com/share/d5eaddf3ce714ff1b88065bb6d996615 
+
 ---
 
 ## Navigation
@@ -358,3 +361,5 @@ Genre and mood use binary matching (1.0 if match, 0.0 otherwise). Numerical feat
 
 ### Artist based Recommender Output
 ![Artist based Recommender Output](image-3.png)
+
+
